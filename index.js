@@ -5,15 +5,44 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 require('dotenv').config();
 
 // Proxy configuration from environment variables
-const PROXY_SERVER = process.env.PROXY_SERVER || 'as.2a5c7a83de539ea5.abcproxy.vip:4950';
-const PROXY_USERNAME = process.env.PROXY_USERNAME || 'Bwrka67HY5-zone-star-region-us';
-const PROXY_PASSWORD = process.env.PROXY_PASSWORD || '72237663';
+const PROXY_SERVER = process.env.PROXY_SERVER || 'proxy.geonode.io:9000';
+const PROXY_USERNAME = process.env.PROXY_USERNAME || 'geonode_ZmFHDeiROw-type-residential-country-gb';
+const PROXY_PASSWORD = process.env.PROXY_PASSWORD || 'aecd1a20-faab-469f-8af0-6b6f4d8e129c';
 const API_URL = process.env.API_URL || 'https://rpc.sunroom.so/twirp/sunroom.api.Api/CreatePhoneVerification';
 const REQUEST_DELAY = parseInt(process.env.REQUEST_DELAY || '1000', 10);
 
-// Create proxy agent with authentication
-const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_SERVER}`;
-const proxyAgent = new HttpsProxyAgent(proxyUrl);
+// Read proxies from file
+async function readProxies() {
+  try {
+    const filePath = path.join(__dirname, 'proxyscrape_premium_http_proxies.txt');
+    const data = fs.readFileSync(filePath, 'utf8');
+    // Split by newline and filter out empty lines
+    return data.split('\n')
+      .filter(proxy => proxy.trim() !== '')
+      .map(proxy => proxy.trim());
+  } catch (error) {
+    console.error('Error reading proxies file:', error);
+    return [];
+  }
+}
+
+// Create proxy agent with proxy from file or use default
+async function createProxyAgent() {
+  const proxies = await readProxies();
+  
+  // If proxies are available, use a random one from the file
+  if (proxies.length > 0) {
+    const randomIndex = Math.floor(Math.random() * proxies.length);
+    const randomProxy = proxies[randomIndex];
+    console.log(`Using random proxy: ${randomProxy}`);
+    return new HttpsProxyAgent(`http://${randomProxy}`);
+  }
+  
+  // Fallback to default proxy with authentication if no proxies in file
+  console.log('No proxies found in file, using default proxy');
+  const proxyUrl = `http://${PROXY_USERNAME}:${PROXY_PASSWORD}@${PROXY_SERVER}`;
+  return new HttpsProxyAgent(proxyUrl);
+}
 
 // Read phone numbers from file
 async function readPhoneNumbers() {
@@ -37,6 +66,9 @@ async function sendRequest(phoneNumber) {
   
   try {
     console.log(`Sending request for phone number: ${formattedPhoneNumber}`);
+    
+    // Get a proxy agent
+    const proxyAgent = await createProxyAgent();
     
     // Create the payload as JSON object with the phone number as the value
     const payload = {
